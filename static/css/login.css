@@ -196,3 +196,10 @@ i span{
 .signup a:hover{
   text-decoration: underline;
 }
+.home a{
+  color: #3498db;
+  text-decoration: none;
+}
+.home a:hover{
+  text-decoration: underline;
+}
