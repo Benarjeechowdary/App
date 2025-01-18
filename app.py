@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_mail import Mail, Message
 from flask_migrate import Migrate
 from authlib.integrations.flask_client import OAuth
+from bcrypt import hashpw, gensalt, checkpw
 import secrets,re
 import random
 
@@ -46,7 +47,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
     email = db.Column(db.String(150), unique=True, nullable=False)
-    password = db.Column(db.String(150), nullable=True)
+    password = db.Column(db.String(255), nullable=True)
     reset_token = db.Column(db.String(100), nullable=True)  # Token for password reset
     is_oauth_user = db.Column(db.Boolean, nullable=False,default=False)  # Flag for OAuth users
 
@@ -163,11 +164,14 @@ def signup():
         if existing_user:
             flash('Email already exists! Please use a different email address.', 'danger')
             return redirect(url_for('signup'))
+        
+        # Hash the password before storing it in the session
+        hashed_password = hashpw(password.encode('utf-8'), gensalt())
 
         # Set session variables for signup verification
         session['username'] = username
         session['signup_email'] = email
-        session['signup_password'] = password
+        session['signup_password'] = hashed_password.decode('utf-8')
         session['signup_otp'] = otp
         session['is_login_verification'] = False  # Indicate it's a signup verification
 
@@ -259,7 +263,7 @@ def login():
             return redirect(url_for('signup'))
 
         # For non-OAuth users, verify the password
-        if user.password != password:
+        if not checkpw(password.encode('utf-8'), user.password.encode('utf-8')):
             flash('Invalid credentials. Please try again.', 'danger')
             return redirect(url_for('login'))
 
@@ -374,9 +378,12 @@ def reset_password(token):
                 'danger'
             )
             return redirect(url_for('reset_password', token=token))
+        
+         # Hash the new password
+        hashed_password = hashpw(new_password.encode('utf-8'), gensalt())
 
-        # Update the user's password
-        user.password = new_password
+        # Update the user's password and clear the token
+        user.password = hashed_password.decode('utf-8')
         user.reset_token = None  # Clear the token after reset
         db.session.commit()
 
